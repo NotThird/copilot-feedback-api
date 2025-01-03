@@ -11,10 +11,17 @@ env:
   AZURE_WEBAPP_PACKAGE_PATH: '.'      # Set this to the path to your web app project
   NODE_VERSION: '18.x'                # Set this to the node version to use
 
+permissions:
+  contents: read
+  packages: read
+
 jobs:
   build-and-deploy:
     name: Build and Deploy
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
     
     steps:
     - uses: actions/checkout@v2

@@ -101,53 +101,38 @@ feedbackSchema.index({ userId: 1, createdAt: -1 });
 
 const Feedback = mongoose.model('Feedback', feedbackSchema);
 
-// MongoDB Connection
-const {
-  MONGO_URI,
-  COSMOS_DB_NAME
-} = process.env;
-
-mongoose
-  .connect(MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
-    dbName: COSMOS_DB_NAME,
-    retryWrites: false, // Cosmos DB requirement
-    maxPoolSize: 10,
-    serverSelectionTimeoutMS: 5000,
-    socketTimeoutMS: 45000,
-  })
-  .then(() => console.log(`Connected to MongoDB (Azure Cosmos DB) - Database: ${COSMOS_DB_NAME}`))
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
-    process.exit(1);
-  });
-
-// Handle MongoDB connection events
-mongoose.connection.on('error', err => {
-  console.error('MongoDB error:', err);
-});
-
-mongoose.connection.on('disconnected', () => {
-  console.warn('MongoDB disconnected. Attempting to reconnect...');
-});
-
-mongoose.connection.on('reconnected', () => {
-  console.log('MongoDB reconnected');
-});
-
-// Health check route with version
+// Health check route with version and DB status
 app.get('/', (req, res) => {
+  const dbStatus = mongoose.connection.readyState;
+  const dbStatusMap = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  };
+
   res.json({
     status: 'healthy',
     version: process.env.API_VERSION || 'v1',
     environment: NODE_ENV,
+    database: {
+      status: dbStatusMap[dbStatus] || 'unknown',
+      name: process.env.COSMOS_DB_NAME
+    },
     timestamp: new Date().toISOString()
   });
 });
 
 // POST route to receive feedback
 app.post('/feedback', async (req, res) => {
+  // Check if MongoDB is connected
+  if (!mongoose.connection.readyState) {
+    return res.status(503).json({
+      message: 'Database connection unavailable',
+      error: 'The service is temporarily unable to handle the request due to database connectivity issues'
+    });
+  }
+
   try {
     const { userMessage, botResponse, feedback, rating, userId, userName } = req.body;
 
@@ -205,6 +190,42 @@ const PORT = process.env.PORT || process.env.WEBSITE_PORT || 8080;
 const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Feedback API listening on port ${PORT} in ${NODE_ENV} mode`);
   console.log(`Application running at: http://0.0.0.0:${PORT}`);
+
+  // MongoDB Connection after server starts
+  const { MONGO_URI, COSMOS_DB_NAME } = process.env;
+  
+  if (MONGO_URI && COSMOS_DB_NAME) {
+    mongoose
+      .connect(MONGO_URI, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true,
+        dbName: COSMOS_DB_NAME,
+        retryWrites: false,
+        maxPoolSize: 10,
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+      })
+      .then(() => console.log(`Connected to MongoDB (Azure Cosmos DB) - Database: ${COSMOS_DB_NAME}`))
+      .catch((err) => {
+        console.error('MongoDB connection error:', err);
+        // Don't exit process, let the API continue running
+      });
+
+    // Handle MongoDB connection events
+    mongoose.connection.on('error', err => {
+      console.error('MongoDB error:', err);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.warn('MongoDB disconnected. Attempting to reconnect...');
+    });
+
+    mongoose.connection.on('reconnected', () => {
+      console.log('MongoDB reconnected');
+    });
+  } else {
+    console.warn('MongoDB connection details missing. Running without database connection.');
+  }
 });
 
 // Enhanced error handling for Azure

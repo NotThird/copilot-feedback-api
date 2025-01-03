@@ -3,13 +3,11 @@
   "version": "1.0.1",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js",
-    "build": "npm install",
-    "postinstall": "npm run build"
+    "start": "node server.js"
   },
   "engines": {
-    "node": "~18",
-    "npm": "~9"
+    "node": ">=18",
+    "npm": ">=9"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -33,15 +33,9 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: |
-        npm install --production
-        chmod +x startup.sh
-        echo "Node version: $(node --version)"
-        echo "NPM version: $(npm --version)"
-        ls -la
+      run: npm install --production
 
     - name: 'Deploy to Azure WebApp'
-      id: deploy-to-webapp
       uses: azure/webapps-deploy@v2
       with:
         app-name: ${{ env.AZURE_WEBAPP_NAME }}

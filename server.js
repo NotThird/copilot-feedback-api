@@ -34,6 +34,12 @@ console.log('Platform:', process.platform);
 console.log('Architecture:', process.arch);
 console.log('=========================');
 
+// Additional logging for deployment
+console.log('Deployment Details:');
+console.log('AZURE_WEBAPP_NAME:', process.env.AZURE_WEBAPP_NAME);
+console.log('AZURE_WEBAPP_PACKAGE_PATH:', process.env.AZURE_WEBAPP_PACKAGE_PATH);
+console.log('=========================');
+
 // Environment variables
 const {
   NODE_ENV = 'development',

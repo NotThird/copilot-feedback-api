@@ -7,6 +7,11 @@ import rateLimit from 'express-rate-limit';
 // Create Express app
 const app = express();
 
+// Log startup information
+console.log('Starting Feedback API...');
+console.log(`Node Version: ${process.version}`);
+console.log(`Environment: ${process.env.NODE_ENV}`);
+
 // Environment variables
 const {
   NODE_ENV = 'development',

@@ -11,6 +11,9 @@ const app = express();
 console.log('Starting Feedback API...');
 console.log(`Node Version: ${process.version}`);
 console.log(`Environment: ${process.env.NODE_ENV}`);
+console.log(`Current Directory: ${process.cwd()}`);
+console.log(`Process ID: ${process.pid}`);
+console.log(`Memory Usage: ${JSON.stringify(process.memoryUsage())}`);
 
 // Environment variables
 const {

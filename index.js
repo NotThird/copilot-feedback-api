@@ -200,10 +200,21 @@ app.post('/feedback', async (req, res) => {
   }
 });
 
-// Start server
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
+// Azure Web App specific configurations
+const PORT = process.env.PORT || process.env.WEBSITE_PORT || 8080;
+const server = app.listen(PORT, '0.0.0.0', () => {
   console.log(`Feedback API listening on port ${PORT} in ${NODE_ENV} mode`);
+  console.log(`Application running at: http://0.0.0.0:${PORT}`);
+});
+
+// Enhanced error handling for Azure
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    message: 'Internal server error',
+    error: NODE_ENV === 'development' ? err.message : undefined,
+    requestId: req.headers['x-ms-request-id'] || undefined
+  });
 });
 
 // Graceful shutdown

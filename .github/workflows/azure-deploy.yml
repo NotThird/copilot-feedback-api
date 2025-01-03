@@ -9,7 +9,7 @@ on:
 env:
   AZURE_WEBAPP_NAME: feedbackapi    # Correct app name from publish profile
   AZURE_WEBAPP_PACKAGE_PATH: '.'      # Set this to the path to your web app project
-  NODE_VERSION: '18.x'                # Set this to the node version to use
+  NODE_VERSION: '18.20.4'            # Exact version available on Azure
 
 permissions:
   contents: read

@@ -35,9 +35,6 @@ jobs:
     - name: Install dependencies
       run: npm install
 
-    - name: Build Node.js app
-      run: npm run build  # Only if your app needs a build step
-      
     - name: Deploy to Azure WebApp
       uses: azure/webapps-deploy@v2
       with:

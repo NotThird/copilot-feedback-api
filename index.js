@@ -1,7 +1,8 @@
-require('dotenv').config();
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
+import 'dotenv/config';
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import rateLimit from 'express-rate-limit';
 
 // Create Express app
 const app = express();
@@ -37,7 +38,6 @@ if (ENABLE_REQUEST_LOGGING === 'true') {
 
 // Rate limiting middleware
 if (ENABLE_RATE_LIMITING === 'true') {
-  const rateLimit = require('express-rate-limit');
   app.use(rateLimit({
     windowMs: parseInt(RATE_LIMIT_WINDOW_MS),
     max: parseInt(RATE_LIMIT_MAX_REQUESTS)

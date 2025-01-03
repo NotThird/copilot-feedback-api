@@ -2,8 +2,11 @@
   "name": "feedback-api",
   "script": "index.js",
   "instances": 1,
+  "exec_mode": "fork",
+  "watch": false,
   "env": {
     "NODE_ENV": "production",
-    "PORT": 8080
+    "PORT": 8080,
+    "WEBSITE_NODE_DEFAULT_VERSION": "~18"
   }
 }

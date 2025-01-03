@@ -26,15 +26,6 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Set up Node.js
-      uses: actions/setup-node@v2
-      with:
-        node-version: ${{ env.NODE_VERSION }}
-        cache: 'npm'
-
-    - name: Install dependencies
-      run: npm install --production
-        
     - name: 'Deploy to Azure WebApp'
       uses: azure/webapps-deploy@v2
       with:

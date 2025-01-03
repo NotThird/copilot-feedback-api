@@ -1,8 +1,8 @@
-import 'dotenv/config';
-import express from 'express';
-import mongoose from 'mongoose';
-import cors from 'cors';
-import rateLimit from 'express-rate-limit';
+require('dotenv').config();
+const express = require('express');
+const mongoose = require('mongoose');
+const cors = require('cors');
+const rateLimit = require('express-rate-limit');
 
 // Create Express app
 const app = express();

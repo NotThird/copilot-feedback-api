@@ -1,10 +1,9 @@
 {
   "name": "feedback-api",
   "version": "1.0.1",
-  "main": "index.js",
-  "type": "module",
+  "main": "server.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node server.js"
   },
   "engines": {
     "node": "18.20.4"

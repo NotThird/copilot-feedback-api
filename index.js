@@ -128,7 +128,7 @@ mongoose.connection.on('reconnected', () => {
   console.log('MongoDB reconnected');
 });
 
-// Health check route
+// Health check route with version
 app.get('/', (req, res) => {
   res.json({
     status: 'healthy',

@@ -4,16 +4,35 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 
+// Enhanced error handling for uncaught exceptions
+process.on('uncaughtException', (err) => {
+  console.error('Uncaught Exception:', err);
+  console.error(err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 // Create Express app
 const app = express();
 
-// Log startup information
-console.log('Starting Feedback API...');
-console.log(`Node Version: ${process.version}`);
-console.log(`Environment: ${process.env.NODE_ENV}`);
-console.log(`Current Directory: ${process.cwd()}`);
-console.log(`Process ID: ${process.pid}`);
-console.log(`Memory Usage: ${JSON.stringify(process.memoryUsage())}`);
+// Log detailed startup information
+console.log('=== Starting Feedback API ===');
+console.log('Environment Variables:');
+console.log('NODE_ENV:', process.env.NODE_ENV);
+console.log('PORT:', process.env.PORT);
+console.log('MONGO_URI:', process.env.MONGO_URI ? '[SET]' : '[NOT SET]');
+console.log('COSMOS_DB_NAME:', process.env.COSMOS_DB_NAME);
+console.log('COSMOS_CONTAINER_NAME:', process.env.COSMOS_CONTAINER_NAME);
+console.log('\nSystem Information:');
+console.log('Node Version:', process.version);
+console.log('Current Directory:', process.cwd());
+console.log('Process ID:', process.pid);
+console.log('Memory Usage:', JSON.stringify(process.memoryUsage()));
+console.log('Platform:', process.platform);
+console.log('Architecture:', process.arch);
+console.log('=========================');
 
 // Environment variables
 const {

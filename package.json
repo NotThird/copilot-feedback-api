@@ -4,22 +4,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "postinstall": "npm install --only=production"
+    "start": "node index.js"
   },
   "engines": {
-    "node": "~18",
-    "npm": "~9"
+    "node": "18.x"
   },
-  "keywords": [
-    "feedback",
-    "api",
-    "copilot",
-    "azure"
-  ],
-  "author": "",
-  "license": "ISC",
-  "description": "Feedback collection API for Copilot Studio",
   "dependencies": {
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",

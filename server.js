@@ -18,7 +18,12 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-app.use(express.json());
+// Parse raw body for template handling
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  }
+}));
 
 // Health check endpoint that doesn't depend on MongoDB
 app.get('/', (req, res) => {
@@ -92,29 +97,28 @@ if (uri) {
   app.post('/feedback', async (req, res) => {
     try {
       // Log raw request
-      console.log('Raw request body:', req.body);
-      console.log('Request body type:', typeof req.body);
-      console.log('Stringified body:', JSON.stringify(req.body, null, 2));
-
-      // If body is a string, try to parse it
-      let parsedBody = req.body;
-      if (typeof req.body === 'string') {
-        try {
-          parsedBody = JSON.parse(req.body);
-          console.log('Parsed string body:', parsedBody);
-        } catch (e) {
-          console.log('Failed to parse string body:', e);
-          // Try to handle Copilot Studio's string template format
-          if (req.body.startsWith('={') && req.body.endsWith('}')) {
-            try {
-              const cleaned = req.body.substring(2, req.body.length); // Remove ={
-              parsedBody = JSON.parse(cleaned);
-              console.log('Parsed Copilot Studio template:', parsedBody);
-            } catch (e2) {
-              console.log('Failed to parse Copilot Studio template:', e2);
-            }
-          }
+      console.log('Raw request body:', req.rawBody);
+      
+      // Handle Copilot Studio template format
+      let parsedBody;
+      try {
+        if (req.rawBody.startsWith('={') && req.rawBody.endsWith('}')) {
+          // Remove ={ and parse
+          const cleaned = req.rawBody.substring(2);
+          parsedBody = JSON.parse(cleaned);
+          console.log('Parsed Copilot Studio template:', parsedBody);
+        } else {
+          // Regular JSON
+          parsedBody = req.body;
+          console.log('Regular JSON body:', parsedBody);
         }
+      } catch (e) {
+        console.error('Error parsing request body:', e);
+        return res.status(400).json({
+          message: 'Invalid request format',
+          error: e.message,
+          receivedBody: req.rawBody
+        });
       }
 
       // Function to recursively search for a value in an object

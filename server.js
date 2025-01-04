@@ -7,7 +7,8 @@ require('dotenv').config();
 const app = express();
 
 // MongoDB setup
-const uri = process.env.MONGODB_URI;
+// In Azure, we use the app setting
+const uri = process.env.MONGODB_URI || process.env.AZURE_APP_SETTING_MONGODB_URI;
 const client = new MongoClient(uri);
 let db;
 let feedbackCollection;
@@ -100,7 +101,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-const port = process.env.PORT || 8080;
+// Azure Web Apps will set process.env.PORT
+const port = process.env.PORT || 3000;
 
 // Connect to MongoDB then start server
 connectToMongo().then(() => {

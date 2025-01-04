@@ -134,14 +134,17 @@ const port = process.env.PORT || 8080;
 
 // Connect to MongoDB then start server
 connectToMongo().then(() => {
-  const server = app.listen(port, '0.0.0.0', () => {
+  const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`);
     console.log('Server is ready to accept connections');
+    console.log('Environment:', process.env.NODE_ENV);
+    console.log('Azure Website:', process.env.WEBSITE_SITE_NAME || 'Not running in Azure');
   });
 
   // Handle server errors
   server.on('error', (error) => {
     console.error('Server error:', error);
+    console.error('Error details:', error.stack);
     if (error.code === 'EADDRINUSE') {
       console.log('Address in use, retrying...');
       setTimeout(() => {
@@ -152,6 +155,7 @@ connectToMongo().then(() => {
   });
 }).catch(error => {
   console.error('Failed to start server:', error);
+  console.error('Error details:', error.stack);
   if (!process.env.WEBSITE_SITE_NAME) {
     process.exit(1);
   }

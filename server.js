@@ -59,12 +59,28 @@ if (uri) {
   // Feedback POST route
   app.post('/feedback', async (req, res) => {
     try {
-      const { userMessage, botResponse, feedback, rating, userId, userName } = req.body;
+      console.log('Received request body:', JSON.stringify(req.body, null, 2));
+      
+      // Handle both Copilot Studio format and our original format
+      let userMessage, botResponse, feedback, rating, userId, userName;
+      
+      if (req.body.conversationId) {
+        // Copilot Studio format
+        userMessage = req.body.userMessage || req.body.text || '';
+        botResponse = req.body.botResponse || req.body.lastBotResponse || '';
+        feedback = req.body.feedback || req.body.text || '';
+        rating = req.body.rating || 5;
+        userId = req.body.conversationId || 'unknown';
+        userName = req.body.userName || 'anonymous';
+      } else {
+        // Original format
+        ({ userMessage, botResponse, feedback, rating, userId, userName } = req.body);
+      }
 
-      if (!userMessage || !botResponse || !feedback || !rating || !userId || !userName) {
+      if (!userMessage || !botResponse || !feedback || !rating || !userId) {
         return res.status(400).json({
           message: 'Missing required fields',
-          required: ['userMessage', 'botResponse', 'feedback', 'rating', 'userId', 'userName']
+          required: ['userMessage/text', 'botResponse/lastBotResponse', 'feedback/text', 'rating', 'userId/conversationId']
         });
       }
 

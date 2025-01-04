@@ -15,13 +15,21 @@ let feedbackCollection;
 
 async function connectToMongo() {
   try {
+    console.log('Attempting to connect to MongoDB...');
+    console.log('Using URI:', uri ? 'URI is set' : 'URI is not set');
     await client.connect();
-    console.log('Connected to MongoDB');
+    console.log('Connected to MongoDB successfully');
     db = client.db('feedback');
     feedbackCollection = db.collection('feedback-data');
   } catch (error) {
     console.error('MongoDB connection error:', error);
-    process.exit(1);
+    console.error('Full error details:', JSON.stringify(error, null, 2));
+    // Don't exit process in Azure
+    if (process.env.WEBSITE_SITE_NAME) {
+      console.log('Running in Azure, keeping process alive despite error');
+    } else {
+      process.exit(1);
+    }
   }
 }
 

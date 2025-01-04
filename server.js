@@ -13,8 +13,18 @@ console.log('Environment:', process.env.NODE_ENV);
 console.log('Azure Website Name:', process.env.WEBSITE_SITE_NAME || 'Not running in Azure');
 
 // Basic middleware
-app.use(cors());
+app.use(cors({
+  origin: '*',
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
+
+// Add request logging
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
 
 // MongoDB setup
 // In Azure, we use the app setting

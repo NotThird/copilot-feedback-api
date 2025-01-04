@@ -7,9 +7,23 @@ require('dotenv').config();
 const app = express();
 
 // Log startup information
+console.log('Starting server...');
 console.log('Node.js Version:', process.version);
 console.log('Environment:', process.env.NODE_ENV);
 console.log('Azure Website Name:', process.env.WEBSITE_SITE_NAME || 'Not running in Azure');
+
+// Basic middleware
+app.use(cors());
+app.use(express.json());
+
+// Add error handling middleware early
+app.use((err, req, res, next) => {
+  console.error('Unhandled error:', err);
+  res.status(500).json({
+    message: 'Internal server error',
+    error: err.message
+  });
+});
 
 // MongoDB setup
 // In Azure, we use the app setting
@@ -20,6 +34,16 @@ if (!uri) {
         console.error('Running in Azure - check Application Settings for MONGODB_URI');
     }
 }
+
+// Add basic health check early
+app.get('/', (req, res) => {
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    env: process.env.NODE_ENV,
+    mongodb: uri ? 'configured' : 'not configured'
+  });
+});
 const client = new MongoClient(uri);
 let db;
 let feedbackCollection;
@@ -44,17 +68,6 @@ async function connectToMongo() {
   }
 }
 
-// Basic middleware
-app.use(cors());
-app.use(express.json());
-
-// Health check route
-app.get('/', (req, res) => {
-  res.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString()
-  });
-});
 
 // POST route to receive feedback
 app.post('/feedback', async (req, res) => {

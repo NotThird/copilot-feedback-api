@@ -18,11 +18,17 @@ app.use(express.json());
 
 // MongoDB setup
 // In Azure, we use the app setting
+console.log('Checking MongoDB configuration...');
+console.log('Available environment variables:', Object.keys(process.env).filter(key => key.includes('MONGO')));
+console.log('WEBSITE_SITE_NAME:', process.env.WEBSITE_SITE_NAME);
+console.log('NODE_ENV:', process.env.NODE_ENV);
+
 const uri = process.env.MONGODB_URI || process.env.AZURE_APP_SETTING_MONGODB_URI;
 if (!uri) {
     console.error('MongoDB URI is not set. Please check environment variables.');
     if (process.env.WEBSITE_SITE_NAME) {
         console.error('Running in Azure - check Application Settings for MONGODB_URI');
+        console.error('Available env vars:', JSON.stringify(process.env, null, 2));
     }
 }
 
@@ -43,6 +49,7 @@ async function connectToMongo() {
   try {
     console.log('Attempting to connect to MongoDB...');
     console.log('Using URI:', uri ? 'URI is set' : 'URI is not set');
+    console.log('Connection string starts with:', uri ? uri.substring(0, 20) + '...' : 'undefined');
     await client.connect();
     console.log('Connected to MongoDB successfully');
     db = client.db('feedback');

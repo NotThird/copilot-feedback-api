@@ -38,9 +38,17 @@ app.get('/', (req, res) => {
 // MongoDB setup
 const uri = process.env.MONGODB_URI;
 if (uri) {
-  const client = new MongoClient(uri);
+  const client = new MongoClient(uri, {
+    maxPoolSize: 10,
+    minPoolSize: 5,
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 10000,
+    connectTimeoutMS: 10000,
+  });
+
   let db;
   let feedbackCollection;
+  let isConnected = false;
 
   async function connectToMongo() {
     try {
@@ -49,12 +57,36 @@ if (uri) {
       console.log('Connected to MongoDB successfully');
       db = client.db('feedback');
       feedbackCollection = db.collection('feedback-data');
+      isConnected = true;
     } catch (error) {
       console.error('MongoDB connection error:', error);
+      isConnected = false;
     }
   }
 
+  // Initial connection
   connectToMongo();
+
+  // Middleware to ensure MongoDB is connected
+  app.use(async (req, res, next) => {
+    if (!isConnected) {
+      try {
+        await connectToMongo();
+        if (!isConnected) {
+          return res.status(503).json({ 
+            message: 'Database connection unavailable',
+            error: 'Please try again in a few moments'
+          });
+        }
+      } catch (error) {
+        return res.status(503).json({ 
+          message: 'Database connection error',
+          error: error.message
+        });
+      }
+    }
+    next();
+  });
 
   // Feedback POST route
   app.post('/feedback', async (req, res) => {
@@ -138,7 +170,7 @@ if (uri) {
         createdAt: new Date().toISOString(),
       };
 
-      await feedbackCollection.insertOne(newFeedback);
+      await feedbackCollection.insertOne(newFeedback, { maxTimeMS: 5000 });
       res.status(201).json({ message: 'Feedback saved successfully', data: newFeedback });
     } catch (error) {
       console.error('Error saving feedback:', error);
@@ -149,7 +181,7 @@ if (uri) {
   // Feedback GET route
   app.get('/feedback', async (req, res) => {
     try {
-      const feedback = await feedbackCollection.find({}).toArray();
+      const feedback = await feedbackCollection.find({}).maxTimeMS(5000).toArray();
       res.json(feedback);
     } catch (error) {
       console.error('Error retrieving feedback:', error);

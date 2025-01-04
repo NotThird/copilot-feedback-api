@@ -18,44 +18,40 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-// Raw body parser
-const rawBodyParser = (req, res, next) => {
-  if (req.method === 'POST') {
-    let data = '';
-    req.setEncoding('utf8');
-    req.on('data', chunk => {
-      data += chunk;
-    });
-    req.on('end', () => {
-      console.log('Raw data received:', data);
-      try {
-        if (data.startsWith('={')) {
-          // Handle Copilot Studio template format
-          const jsonStr = data.substring(2);
-          console.log('Parsing template format:', jsonStr);
-          req.body = JSON.parse(jsonStr);
-        } else {
-          // Handle regular JSON
-          req.body = JSON.parse(data);
-        }
-        console.log('Parsed body:', req.body);
-        next();
-      } catch (e) {
-        console.error('Error parsing body:', e);
-        res.status(400).json({
-          message: 'Invalid request format',
-          error: e.message,
-          receivedData: data
-        });
-      }
-    });
-  } else {
-    next();
-  }
-};
+// Body parser setup
+app.use(express.text({
+  type: ['text/plain', 'application/json']
+}));
 
-// Use raw body parser before other middleware
-app.use(rawBodyParser);
+// Custom middleware to handle Copilot Studio format
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.body) {
+    console.log('Received body:', req.body);
+    try {
+      // Remove any BOM and whitespace
+      const cleanBody = req.body.trim().replace(/^\uFEFF/, '');
+      
+      // Handle Copilot Studio format
+      if (cleanBody.startsWith('={')) {
+        const jsonPart = cleanBody.slice(2);
+        console.log('Extracted JSON part:', jsonPart);
+        req.body = JSON.parse(jsonPart);
+      } else {
+        // Regular JSON
+        req.body = JSON.parse(cleanBody);
+      }
+      console.log('Parsed body:', req.body);
+    } catch (e) {
+      console.error('Parse error:', e);
+      return res.status(400).json({
+        message: 'Parse error',
+        error: e.message,
+        receivedBody: req.body
+      });
+    }
+  }
+  next();
+});
 
 // Health check endpoint that doesn't depend on MongoDB
 app.get('/', (req, res) => {

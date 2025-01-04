@@ -6,9 +6,20 @@ require('dotenv').config();
 // Create Express app
 const app = express();
 
+// Log startup information
+console.log('Node.js Version:', process.version);
+console.log('Environment:', process.env.NODE_ENV);
+console.log('Azure Website Name:', process.env.WEBSITE_SITE_NAME || 'Not running in Azure');
+
 // MongoDB setup
 // In Azure, we use the app setting
 const uri = process.env.MONGODB_URI || process.env.AZURE_APP_SETTING_MONGODB_URI;
+if (!uri) {
+    console.error('MongoDB URI is not set. Please check environment variables.');
+    if (process.env.WEBSITE_SITE_NAME) {
+        console.error('Running in Azure - check Application Settings for MONGODB_URI');
+    }
+}
 const client = new MongoClient(uri);
 let db;
 let feedbackCollection;
@@ -114,10 +125,16 @@ const port = process.env.PORT || 3000;
 
 // Connect to MongoDB then start server
 connectToMongo().then(() => {
-  app.listen(port, () => {
+  app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on port ${port}`);
+    console.log('Server is ready to accept connections');
   });
-}).catch(console.error);
+}).catch(error => {
+  console.error('Failed to start server:', error);
+  if (!process.env.WEBSITE_SITE_NAME) {
+    process.exit(1);
+  }
+});
 
 // Handle process termination
 process.on('SIGINT', async () => {

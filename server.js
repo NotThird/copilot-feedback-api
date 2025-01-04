@@ -91,8 +91,32 @@ if (uri) {
   // Feedback POST route
   app.post('/feedback', async (req, res) => {
     try {
-      console.log('Received request body:', JSON.stringify(req.body, null, 2));
-      
+      // Log raw request
+      console.log('Raw request body:', req.body);
+      console.log('Request body type:', typeof req.body);
+      console.log('Stringified body:', JSON.stringify(req.body, null, 2));
+
+      // If body is a string, try to parse it
+      let parsedBody = req.body;
+      if (typeof req.body === 'string') {
+        try {
+          parsedBody = JSON.parse(req.body);
+          console.log('Parsed string body:', parsedBody);
+        } catch (e) {
+          console.log('Failed to parse string body:', e);
+          // Try to handle Copilot Studio's string template format
+          if (req.body.startsWith('={') && req.body.endsWith('}')) {
+            try {
+              const cleaned = req.body.substring(2, req.body.length); // Remove ={
+              parsedBody = JSON.parse(cleaned);
+              console.log('Parsed Copilot Studio template:', parsedBody);
+            } catch (e2) {
+              console.log('Failed to parse Copilot Studio template:', e2);
+            }
+          }
+        }
+      }
+
       // Function to recursively search for a value in an object
       function findValueInObject(obj, keys) {
         if (!obj || typeof obj !== 'object') return null;
@@ -125,13 +149,13 @@ if (uri) {
         userName: ['userName', 'user', 'name', 'from.name']
       };
 
-      // Extract values using the recursive search
-      const userMessage = findValueInObject(req.body, fieldKeys.userMessage) || '';
-      const botResponse = findValueInObject(req.body, fieldKeys.botResponse) || '';
-      const feedback = findValueInObject(req.body, fieldKeys.feedback) || '';
-      const rating = findValueInObject(req.body, fieldKeys.rating) || '';
-      const userId = findValueInObject(req.body, fieldKeys.userId) || '';
-      const userName = findValueInObject(req.body, fieldKeys.userName) || 'anonymous';
+      // Extract values using the recursive search from parsed body
+      const userMessage = findValueInObject(parsedBody, fieldKeys.userMessage) || '';
+      const botResponse = findValueInObject(parsedBody, fieldKeys.botResponse) || '';
+      const feedback = findValueInObject(parsedBody, fieldKeys.feedback) || '';
+      const rating = findValueInObject(parsedBody, fieldKeys.rating) || '';
+      const userId = findValueInObject(parsedBody, fieldKeys.userId) || '';
+      const userName = findValueInObject(parsedBody, fieldKeys.userName) || 'anonymous';
 
       // Log individual fields for debugging
       console.log('Extracted fields:', {
@@ -156,7 +180,16 @@ if (uri) {
           message: 'Missing required fields',
           message: 'Missing required fields',
           missingFields,
-          receivedBody: req.body
+          receivedBody: req.body,
+          parsedBody: parsedBody,
+          extractedFields: {
+            userMessage,
+            botResponse,
+            feedback,
+            rating,
+            userId,
+            userName
+          }
         });
       }
 

@@ -1,0 +1,8 @@
+{
+  "userMessage": "Test message",
+  "botResponse": "Test response",
+  "feedback": "Test feedback",
+  "rating": 5,
+  "userId": "test123",
+  "userName": "TestUser"
+}

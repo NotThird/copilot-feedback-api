@@ -18,6 +18,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
+
 // Body parser setup
 app.use(express.json());
 
@@ -32,7 +33,7 @@ app.use((req, res, next) => {
   next();
 });
 
-// Health check endpoint that doesn't depend on MongoDB
+// Health check endpoint
 app.get('/', (req, res) => {
   res.json({
     status: 'healthy',
@@ -103,96 +104,40 @@ if (uri) {
   // Feedback POST route
   app.post('/feedback', async (req, res) => {
     try {
-      // Body is already parsed in middleware
-      const parsedBody = req.body;
+      const { userMessage, botResponse, feedback, rating, userId, userName } = req.body;
 
-      // Function to recursively search for a value in an object
-      function findValueInObject(obj, keys) {
-        if (!obj || typeof obj !== 'object') return null;
-        
-        // Try direct matches first
-        for (const key of keys) {
-          if (obj[key] !== undefined && obj[key] !== null && obj[key] !== '') {
-            return obj[key];
-          }
-        }
-        
-        // Search in nested objects
-        for (const value of Object.values(obj)) {
-          if (typeof value === 'object') {
-            const found = findValueInObject(value, keys);
-            if (found) return found;
-          }
-        }
-        
-        return null;
-      }
-
-      // Define possible keys for each field
-      const fieldKeys = {
-        userMessage: ['userMessage', 'text', 'query', 'message', 'input'],
-        botResponse: ['botResponse', 'lastBotResponse', 'response', 'answer', 'output'],
-        feedback: ['feedback', 'userFeedback', 'comment', 'text'],
-        rating: ['rating', 'score', 'stars', 'value'],
-        userId: ['userId', 'conversationId', 'id', 'user_id', 'from.id'],
-        userName: ['userName', 'user', 'name', 'from.name']
-      };
-
-      // Extract values using the recursive search from parsed body
-      const userMessage = findValueInObject(parsedBody, fieldKeys.userMessage) || '';
-      const botResponse = findValueInObject(parsedBody, fieldKeys.botResponse) || '';
-      const feedback = findValueInObject(parsedBody, fieldKeys.feedback) || '';
-      const rating = findValueInObject(parsedBody, fieldKeys.rating) || '';
-      const userId = findValueInObject(parsedBody, fieldKeys.userId) || '';
-      const userName = findValueInObject(parsedBody, fieldKeys.userName) || 'anonymous';
-
-      // Log individual fields for debugging
-      console.log('Extracted fields:', {
-        userMessage,
-        botResponse,
-        feedback,
-        rating,
-        userId,
-        userName
-      });
+      // Log the received feedback
+      console.log('Received feedback:', { userMessage, botResponse, feedback, rating, userId, userName });
 
       // Validate required fields
       const missingFields = [];
+      if (!userMessage) missingFields.push('userMessage');
       if (!botResponse) missingFields.push('botResponse');
       if (!feedback) missingFields.push('feedback');
       if (!rating) missingFields.push('rating');
-      if (!userMessage) missingFields.push('userMessage');
       if (!userId) missingFields.push('userId');
 
       if (missingFields.length > 0) {
         return res.status(400).json({
           message: 'Missing required fields',
-          message: 'Missing required fields',
           missingFields,
-          receivedBody: req.body,
-          parsedBody: parsedBody,
-          extractedFields: {
-            userMessage,
-            botResponse,
-            feedback,
-            rating,
-            userId,
-            userName
-          }
+          receivedBody: req.body
         });
       }
 
+      // Create feedback object
       const newFeedback = {
         userMessage,
         botResponse,
         feedback,
-        rating: parseInt(rating),
+        rating: parseInt(rating, 10),
         userId,
-        userName,
-        createdAt: new Date().toISOString(),
+        userName: userName || 'anonymous',
+        createdAt: new Date().toISOString()
       };
 
-      await feedbackCollection.insertOne(newFeedback, { maxTimeMS: 5000 });
+      // Insert feedback into the database
+      await feedbackCollection.insertOne(newFeedback);
       res.status(201).json({ message: 'Feedback saved successfully', data: newFeedback });
     } catch (error) {
       console.error('Error saving feedback:', error);
@@ -203,7 +148,7 @@ if (uri) {
   // Feedback GET route
   app.get('/feedback', async (req, res) => {
     try {
-      const feedback = await feedbackCollection.find({}).maxTimeMS(5000).toArray();
+      const feedback = await feedbackCollection.find({}).toArray();
       res.json(feedback);
     } catch (error) {
       console.error('Error retrieving feedback:', error);

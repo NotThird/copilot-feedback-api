@@ -18,40 +18,44 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-// Handle raw text first
-app.use(express.text({ type: 'application/json' }));
-
-// Parse JSON after handling template format
-app.use((req, res, next) => {
-  if (req.method === 'POST' && req.body) {
-    try {
-      let jsonData;
-      const rawBody = req.body;
-      console.log('Raw body received:', rawBody);
-
-      if (typeof rawBody === 'string' && rawBody.startsWith('={')) {
-        // Handle Copilot Studio template format
-        const jsonStr = rawBody.substring(2); // Remove ={
-        console.log('Parsing template format:', jsonStr);
-        jsonData = JSON.parse(jsonStr);
-      } else {
-        // Handle regular JSON
-        jsonData = JSON.parse(rawBody);
+// Raw body parser
+const rawBodyParser = (req, res, next) => {
+  if (req.method === 'POST') {
+    let data = '';
+    req.setEncoding('utf8');
+    req.on('data', chunk => {
+      data += chunk;
+    });
+    req.on('end', () => {
+      console.log('Raw data received:', data);
+      try {
+        if (data.startsWith('={')) {
+          // Handle Copilot Studio template format
+          const jsonStr = data.substring(2);
+          console.log('Parsing template format:', jsonStr);
+          req.body = JSON.parse(jsonStr);
+        } else {
+          // Handle regular JSON
+          req.body = JSON.parse(data);
+        }
+        console.log('Parsed body:', req.body);
+        next();
+      } catch (e) {
+        console.error('Error parsing body:', e);
+        res.status(400).json({
+          message: 'Invalid request format',
+          error: e.message,
+          receivedData: data
+        });
       }
-      
-      req.body = jsonData;
-      console.log('Parsed body:', jsonData);
-    } catch (e) {
-      console.error('Error parsing request body:', e);
-      return res.status(400).json({
-        message: 'Invalid JSON format',
-        error: e.message,
-        receivedBody: req.body
-      });
-    }
+    });
+  } else {
+    next();
   }
-  next();
-});
+};
+
+// Use raw body parser before other middleware
+app.use(rawBodyParser);
 
 // Health check endpoint that doesn't depend on MongoDB
 app.get('/', (req, res) => {

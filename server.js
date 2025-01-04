@@ -43,14 +43,22 @@ if (!uri) {
 }
 
 // Add basic health check early
+// Health check endpoint that doesn't depend on MongoDB
 app.get('/', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV,
-    mongodb: uri ? 'configured' : 'not configured'
+    env: process.env.NODE_ENV || 'development',
+    mongodb: uri ? 'configured' : 'not configured',
+    version: process.version,
+    azure: {
+      website: process.env.WEBSITE_SITE_NAME || 'not in azure',
+      instance: process.env.WEBSITE_INSTANCE_ID || 'not available'
+    }
   });
 });
+
+// MongoDB client setup
 const client = new MongoClient(uri);
 let db;
 let feedbackCollection;
@@ -76,61 +84,63 @@ async function connectToMongo() {
   }
 }
 
+// Only setup MongoDB routes if URI is configured
+if (uri) {
+  // POST route to receive feedback
+  app.post('/feedback', async (req, res) => {
+    try {
+      const { userMessage, botResponse, feedback, rating, userId, userName } = req.body;
+      
+      // Basic validation
+      if (!userMessage || !botResponse || !feedback || !rating || !userId || !userName) {
+        return res.status(400).json({
+          message: 'Missing required fields',
+          required: ['userMessage', 'botResponse', 'feedback', 'rating', 'userId', 'userName']
+        });
+      }
 
-// POST route to receive feedback
-app.post('/feedback', async (req, res) => {
-  try {
-    const { userMessage, botResponse, feedback, rating, userId, userName } = req.body;
-    
-    // Basic validation
-    if (!userMessage || !botResponse || !feedback || !rating || !userId || !userName) {
-      return res.status(400).json({
-        message: 'Missing required fields',
-        required: ['userMessage', 'botResponse', 'feedback', 'rating', 'userId', 'userName']
+      // Create new feedback entry
+      const newFeedback = {
+        userMessage,
+        botResponse,
+        feedback,
+        rating: parseInt(rating),
+        userId,
+        userName,
+        createdAt: new Date().toISOString(),
+        id: Date.now().toString()
+      };
+
+      // Store feedback in MongoDB
+      await feedbackCollection.insertOne(newFeedback);
+
+      res.status(201).json({
+        message: 'Feedback saved successfully',
+        data: newFeedback
+      });
+    } catch (error) {
+      console.error('Error saving feedback:', error);
+      res.status(500).json({
+        message: 'Error saving feedback',
+        error: error.message
       });
     }
+  });
 
-    // Create new feedback entry
-    const newFeedback = {
-      userMessage,
-      botResponse,
-      feedback,
-      rating: parseInt(rating),
-      userId,
-      userName,
-      createdAt: new Date().toISOString(),
-      id: Date.now().toString()
-    };
-
-    // Store feedback in MongoDB
-    await feedbackCollection.insertOne(newFeedback);
-
-    res.status(201).json({
-      message: 'Feedback saved successfully',
-      data: newFeedback
-    });
-  } catch (error) {
-    console.error('Error saving feedback:', error);
-    res.status(500).json({
-      message: 'Error saving feedback',
-      error: error.message
-    });
-  }
-});
-
-// Get all feedback
-app.get('/feedback', async (req, res) => {
-  try {
-    const feedback = await feedbackCollection.find({}).toArray();
-    res.json(feedback);
-  } catch (error) {
-    console.error('Error retrieving feedback:', error);
-    res.status(500).json({
-      message: 'Error retrieving feedback',
-      error: error.message
-    });
-  }
-});
+  // Get all feedback
+  app.get('/feedback', async (req, res) => {
+    try {
+      const feedback = await feedbackCollection.find({}).toArray();
+      res.json(feedback);
+    } catch (error) {
+      console.error('Error retrieving feedback:', error);
+      res.status(500).json({
+        message: 'Error retrieving feedback',
+        error: error.message
+      });
+    }
+  });
+}
 
 // Error handling middleware should be last
 app.use((err, req, res, next) => {
@@ -150,34 +160,38 @@ app.use((err, req, res, next) => {
 const port = process.env.PORT || process.env.WEBSITE_PORT || 8080;
 console.log('Using port:', port);
 
-// Connect to MongoDB then start server
-connectToMongo().then(() => {
-  const server = app.listen(port, () => {
-    console.log(`Server running on port ${port}`);
-    console.log('Server is ready to accept connections');
-    console.log('Environment:', process.env.NODE_ENV);
-    console.log('Azure Website:', process.env.WEBSITE_SITE_NAME || 'Not running in Azure');
-  });
+// Start server immediately
+const server = app.listen(port, () => {
+  console.log(`Server running on port ${port}`);
+  console.log('Server is ready to accept connections');
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('Azure Website:', process.env.WEBSITE_SITE_NAME || 'Not running in Azure');
+});
 
-  // Handle server errors
-  server.on('error', (error) => {
-    console.error('Server error:', error);
-    console.error('Error details:', error.stack);
-    if (error.code === 'EADDRINUSE') {
-      console.log('Address in use, retrying...');
-      setTimeout(() => {
-        server.close();
-        server.listen(port);
-      }, 1000);
-    }
-  });
-}).catch(error => {
-  console.error('Failed to start server:', error);
+// Handle server errors
+server.on('error', (error) => {
+  console.error('Server error:', error);
   console.error('Error details:', error.stack);
-  if (!process.env.WEBSITE_SITE_NAME) {
-    process.exit(1);
+  if (error.code === 'EADDRINUSE') {
+    console.log('Address in use, retrying...');
+    setTimeout(() => {
+      server.close();
+      server.listen(port);
+    }, 1000);
   }
 });
+
+// Only attempt MongoDB connection if URI is configured
+if (uri) {
+  connectToMongo().then(() => {
+    console.log('MongoDB connected successfully');
+  }).catch(error => {
+    console.error('Failed to connect to MongoDB:', error);
+    console.error('Error details:', error.stack);
+    // Don't exit process, just log error
+    console.log('Continuing without MongoDB connection');
+  });
+}
 
 // Handle process termination
 process.on('SIGINT', async () => {

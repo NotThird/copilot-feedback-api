@@ -16,15 +16,6 @@ console.log('Azure Website Name:', process.env.WEBSITE_SITE_NAME || 'Not running
 app.use(cors());
 app.use(express.json());
 
-// Add error handling middleware early
-app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({
-    message: 'Internal server error',
-    error: err.message
-  });
-});
-
 // MongoDB setup
 // In Azure, we use the app setting
 const uri = process.env.MONGODB_URI || process.env.AZURE_APP_SETTING_MONGODB_URI;
@@ -124,21 +115,26 @@ app.get('/feedback', async (req, res) => {
   }
 });
 
-// Error handling middleware
+// Error handling middleware should be last
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
+  console.error('Error stack:', err.stack);
+  console.error('Request URL:', req.url);
+  console.error('Request method:', req.method);
   res.status(500).json({
     message: 'Internal server error',
-    error: err.message
+    error: err.message,
+    path: req.url,
+    method: req.method
   });
 });
 
 // Azure Web Apps will set process.env.PORT
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8080;
 
 // Connect to MongoDB then start server
 connectToMongo().then(() => {
-  const server = app.listen(port, () => {
+  const server = app.listen(port, '0.0.0.0', () => {
     console.log(`Server running on port ${port}`);
     console.log('Server is ready to accept connections');
   });

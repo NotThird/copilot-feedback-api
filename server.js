@@ -19,36 +19,15 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 // Body parser setup
-app.use(express.text({
-  type: ['text/plain', 'application/json']
-}));
+app.use(express.json());
 
-// Custom middleware to handle Copilot Studio format
+// Log incoming requests
 app.use((req, res, next) => {
-  if (req.method === 'POST' && req.body) {
-    console.log('Received body:', req.body);
-    try {
-      // Remove any BOM and whitespace
-      const cleanBody = req.body.trim().replace(/^\uFEFF/, '');
-      
-      // Handle Copilot Studio format
-      if (cleanBody.startsWith('={')) {
-        const jsonPart = cleanBody.slice(2);
-        console.log('Extracted JSON part:', jsonPart);
-        req.body = JSON.parse(jsonPart);
-      } else {
-        // Regular JSON
-        req.body = JSON.parse(cleanBody);
-      }
-      console.log('Parsed body:', req.body);
-    } catch (e) {
-      console.error('Parse error:', e);
-      return res.status(400).json({
-        message: 'Parse error',
-        error: e.message,
-        receivedBody: req.body
-      });
-    }
+  if (req.method === 'POST') {
+    console.log('Received request:', {
+      headers: req.headers,
+      body: req.body
+    });
   }
   next();
 });

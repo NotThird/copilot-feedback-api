@@ -20,37 +20,14 @@ app.use(cors({
 }));
 app.use(express.json());
 
-// Add request logging
-app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
-  next();
-});
-
-// MongoDB setup
-// In Azure, we use the app setting
-console.log('Checking MongoDB configuration...');
-console.log('Available environment variables:', Object.keys(process.env).filter(key => key.includes('MONGO')));
-console.log('WEBSITE_SITE_NAME:', process.env.WEBSITE_SITE_NAME);
-console.log('NODE_ENV:', process.env.NODE_ENV);
-
-const uri = process.env.MONGODB_URI || process.env.AZURE_APP_SETTING_MONGODB_URI;
-if (!uri) {
-    console.error('MongoDB URI is not set. Please check environment variables.');
-    if (process.env.WEBSITE_SITE_NAME) {
-        console.error('Running in Azure - check Application Settings for MONGODB_URI');
-        console.error('Available env vars:', JSON.stringify(process.env, null, 2));
-    }
-}
-
-// Add basic health check early
 // Health check endpoint that doesn't depend on MongoDB
 app.get('/', (req, res) => {
   res.json({
     status: 'healthy',
     timestamp: new Date().toISOString(),
-    env: process.env.NODE_ENV || 'development',
-    mongodb: uri ? 'configured' : 'not configured',
+    message: 'The server is running!',
     version: process.version,
+    environment: process.env.NODE_ENV || 'development',
     azure: {
       website: process.env.WEBSITE_SITE_NAME || 'not in azure',
       instance: process.env.WEBSITE_INSTANCE_ID || 'not available'
@@ -58,40 +35,32 @@ app.get('/', (req, res) => {
   });
 });
 
-// MongoDB client setup
-const client = new MongoClient(uri);
-let db;
-let feedbackCollection;
-
-async function connectToMongo() {
-  if (!uri) {
-    throw new Error('MongoDB URI is not configured');
-  }
-
-  try {
-    console.log('Attempting to connect to MongoDB...');
-    console.log('Using URI:', uri ? 'URI is set' : 'URI is not set');
-    console.log('Connection string starts with:', uri ? uri.substring(0, 20) + '...' : 'undefined');
-    await client.connect();
-    console.log('Connected to MongoDB successfully');
-    db = client.db('feedback');
-    feedbackCollection = db.collection('feedback-data');
-  } catch (error) {
-    console.error('MongoDB connection error:', error);
-    console.error('Full error details:', JSON.stringify(error, null, 2));
-    // Don't exit process in Azure, but throw error to be handled by error middleware
-    throw new Error(`Failed to connect to MongoDB: ${error.message}`);
-  }
-}
-
-// Only setup MongoDB routes if URI is configured
+// MongoDB setup
+const uri = process.env.MONGODB_URI;
 if (uri) {
-  // POST route to receive feedback
+  const client = new MongoClient(uri);
+  let db;
+  let feedbackCollection;
+
+  async function connectToMongo() {
+    try {
+      console.log('Attempting to connect to MongoDB...');
+      await client.connect();
+      console.log('Connected to MongoDB successfully');
+      db = client.db('feedback');
+      feedbackCollection = db.collection('feedback-data');
+    } catch (error) {
+      console.error('MongoDB connection error:', error);
+    }
+  }
+
+  connectToMongo();
+
+  // Feedback POST route
   app.post('/feedback', async (req, res) => {
     try {
       const { userMessage, botResponse, feedback, rating, userId, userName } = req.body;
-      
-      // Basic validation
+
       if (!userMessage || !botResponse || !feedback || !rating || !userId || !userName) {
         return res.status(400).json({
           message: 'Missing required fields',
@@ -99,7 +68,6 @@ if (uri) {
         });
       }
 
-      // Create new feedback entry
       const newFeedback = {
         userMessage,
         botResponse,
@@ -108,99 +76,36 @@ if (uri) {
         userId,
         userName,
         createdAt: new Date().toISOString(),
-        id: Date.now().toString()
       };
 
-      // Store feedback in MongoDB
       await feedbackCollection.insertOne(newFeedback);
-
-      res.status(201).json({
-        message: 'Feedback saved successfully',
-        data: newFeedback
-      });
+      res.status(201).json({ message: 'Feedback saved successfully', data: newFeedback });
     } catch (error) {
       console.error('Error saving feedback:', error);
-      res.status(500).json({
-        message: 'Error saving feedback',
-        error: error.message
-      });
+      res.status(500).json({ message: 'Error saving feedback', error: error.message });
     }
   });
 
-  // Get all feedback
+  // Feedback GET route
   app.get('/feedback', async (req, res) => {
     try {
       const feedback = await feedbackCollection.find({}).toArray();
       res.json(feedback);
     } catch (error) {
       console.error('Error retrieving feedback:', error);
-      res.status(500).json({
-        message: 'Error retrieving feedback',
-        error: error.message
-      });
+      res.status(500).json({ message: 'Error retrieving feedback', error: error.message });
     }
   });
 }
 
-// Error handling middleware should be last
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);
-  console.error('Error stack:', err.stack);
-  console.error('Request URL:', req.url);
-  console.error('Request method:', req.method);
-  res.status(500).json({
-    message: 'Internal server error',
-    error: err.message,
-    path: req.url,
-    method: req.method
-  });
+  res.status(500).json({ message: 'Internal server error', error: err.message });
 });
 
-// Azure Web Apps will set process.env.PORT or WEBSITE_PORT
-const port = process.env.PORT || process.env.WEBSITE_PORT || 8080;
-console.log('Using port:', port);
-
-// Start server immediately
-const server = app.listen(port, () => {
+// Start the server
+const port = process.env.PORT || 8080;
+app.listen(port, () => {
   console.log(`Server running on port ${port}`);
-  console.log('Server is ready to accept connections');
-  console.log('Environment:', process.env.NODE_ENV);
-  console.log('Azure Website:', process.env.WEBSITE_SITE_NAME || 'Not running in Azure');
-});
-
-// Handle server errors
-server.on('error', (error) => {
-  console.error('Server error:', error);
-  console.error('Error details:', error.stack);
-  if (error.code === 'EADDRINUSE') {
-    console.log('Address in use, retrying...');
-    setTimeout(() => {
-      server.close();
-      server.listen(port);
-    }, 1000);
-  }
-});
-
-// Only attempt MongoDB connection if URI is configured
-if (uri) {
-  connectToMongo().then(() => {
-    console.log('MongoDB connected successfully');
-  }).catch(error => {
-    console.error('Failed to connect to MongoDB:', error);
-    console.error('Error details:', error.stack);
-    // Don't exit process, just log error
-    console.log('Continuing without MongoDB connection');
-  });
-}
-
-// Handle process termination
-process.on('SIGINT', async () => {
-  try {
-    await client.close();
-    console.log('MongoDB connection closed');
-    process.exit(0);
-  } catch (error) {
-    console.error('Error closing MongoDB connection:', error);
-    process.exit(1);
-  }
 });

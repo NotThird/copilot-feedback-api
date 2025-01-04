@@ -138,9 +138,21 @@ const port = process.env.PORT || 3000;
 
 // Connect to MongoDB then start server
 connectToMongo().then(() => {
-  app.listen(port, '0.0.0.0', () => {
+  const server = app.listen(port, () => {
     console.log(`Server running on port ${port}`);
     console.log('Server is ready to accept connections');
+  });
+
+  // Handle server errors
+  server.on('error', (error) => {
+    console.error('Server error:', error);
+    if (error.code === 'EADDRINUSE') {
+      console.log('Address in use, retrying...');
+      setTimeout(() => {
+        server.close();
+        server.listen(port);
+      }, 1000);
+    }
   });
 }).catch(error => {
   console.error('Failed to start server:', error);

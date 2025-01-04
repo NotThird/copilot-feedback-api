@@ -56,6 +56,10 @@ let db;
 let feedbackCollection;
 
 async function connectToMongo() {
+  if (!uri) {
+    throw new Error('MongoDB URI is not configured');
+  }
+
   try {
     console.log('Attempting to connect to MongoDB...');
     console.log('Using URI:', uri ? 'URI is set' : 'URI is not set');
@@ -67,12 +71,8 @@ async function connectToMongo() {
   } catch (error) {
     console.error('MongoDB connection error:', error);
     console.error('Full error details:', JSON.stringify(error, null, 2));
-    // Don't exit process in Azure
-    if (process.env.WEBSITE_SITE_NAME) {
-      console.log('Running in Azure, keeping process alive despite error');
-    } else {
-      process.exit(1);
-    }
+    // Don't exit process in Azure, but throw error to be handled by error middleware
+    throw new Error(`Failed to connect to MongoDB: ${error.message}`);
   }
 }
 

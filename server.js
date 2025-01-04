@@ -18,12 +18,40 @@ app.use(cors({
   methods: ['GET', 'POST', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
-// Parse raw body for template handling
-app.use(express.json({
-  verify: (req, res, buf) => {
-    req.rawBody = buf.toString();
+// Handle raw text first
+app.use(express.text({ type: 'application/json' }));
+
+// Parse JSON after handling template format
+app.use((req, res, next) => {
+  if (req.method === 'POST' && req.body) {
+    try {
+      let jsonData;
+      const rawBody = req.body;
+      console.log('Raw body received:', rawBody);
+
+      if (typeof rawBody === 'string' && rawBody.startsWith('={')) {
+        // Handle Copilot Studio template format
+        const jsonStr = rawBody.substring(2); // Remove ={
+        console.log('Parsing template format:', jsonStr);
+        jsonData = JSON.parse(jsonStr);
+      } else {
+        // Handle regular JSON
+        jsonData = JSON.parse(rawBody);
+      }
+      
+      req.body = jsonData;
+      console.log('Parsed body:', jsonData);
+    } catch (e) {
+      console.error('Error parsing request body:', e);
+      return res.status(400).json({
+        message: 'Invalid JSON format',
+        error: e.message,
+        receivedBody: req.body
+      });
+    }
   }
-}));
+  next();
+});
 
 // Health check endpoint that doesn't depend on MongoDB
 app.get('/', (req, res) => {
@@ -96,30 +124,8 @@ if (uri) {
   // Feedback POST route
   app.post('/feedback', async (req, res) => {
     try {
-      // Log raw request
-      console.log('Raw request body:', req.rawBody);
-      
-      // Handle Copilot Studio template format
-      let parsedBody;
-      try {
-        if (req.rawBody.startsWith('={') && req.rawBody.endsWith('}')) {
-          // Remove ={ and parse
-          const cleaned = req.rawBody.substring(2);
-          parsedBody = JSON.parse(cleaned);
-          console.log('Parsed Copilot Studio template:', parsedBody);
-        } else {
-          // Regular JSON
-          parsedBody = req.body;
-          console.log('Regular JSON body:', parsedBody);
-        }
-      } catch (e) {
-        console.error('Error parsing request body:', e);
-        return res.status(400).json({
-          message: 'Invalid request format',
-          error: e.message,
-          receivedBody: req.rawBody
-        });
-      }
+      // Body is already parsed in middleware
+      const parsedBody = req.body;
 
       // Function to recursively search for a value in an object
       function findValueInObject(obj, keys) {

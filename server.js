@@ -136,8 +136,9 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Azure Web Apps will set process.env.PORT
-const port = process.env.PORT || 8080;
+// Azure Web Apps will set process.env.PORT or WEBSITE_PORT
+const port = process.env.PORT || process.env.WEBSITE_PORT || 8080;
+console.log('Using port:', port);
 
 // Connect to MongoDB then start server
 connectToMongo().then(() => {
